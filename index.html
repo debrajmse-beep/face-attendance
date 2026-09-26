@@ -1,1 +1,152 @@
-<!DOCTYPE html> <html> <head> <meta name="viewport" content="width=device-width, initial-scale=1"> <title>AI Test</title> <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script> </head> <body style="text-align:center;font-family:Arial"> <h2>Face AI Test</h2> <p id="status">Checking AI...</p> <script> const status = document.getElementById("status"); setTimeout(() => { if (typeof Human === "undefined") { status.innerText = "❌ Human AI library NOT loaded"; } else { status.innerText = "✅ Human AI library loaded"; } }, 2000); </script> </body> </html>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Face AI Attendance</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+
+  <style>
+    body {
+      text-align: center;
+      font-family: Arial;
+      margin: 20px;
+    }
+
+    video {
+      width: 90%;
+      max-width: 500px;
+      border-radius: 12px;
+      margin-top: 15px;
+      background: #000;
+    }
+
+    #status {
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    #faceStatus {
+      font-size: 20px;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>Face AI Attendance</h2>
+
+  <p id="status">Loading AI...</p>
+
+  <video id="video" autoplay muted playsinline></video>
+
+  <p id="faceStatus">Camera starting...</p>
+
+  <script>
+
+    const status = document.getElementById("status");
+    const faceStatus = document.getElementById("faceStatus");
+    const video = document.getElementById("video");
+
+    // Human AI configuration
+    const config = {
+      backend: "webgl",
+      modelBasePath:
+        "https://cdn.jsdelivr.net/npm/@vladmandic/human/models/",
+      face: {
+        enabled: true,
+        detector: {
+          rotation: true,
+          maxDetected: 5
+        },
+        mesh: {
+          enabled: true
+        },
+        iris: {
+          enabled: true
+        },
+        description: {
+          enabled: true
+        }
+      }
+    };
+
+    const human = new Human(config);
+
+    async function startFaceAI() {
+
+      try {
+
+        status.innerText = "⏳ Loading Face AI...";
+
+        // Load AI models
+        await human.load();
+
+        status.innerText = "✅ Face AI loaded";
+
+        // Start camera
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: 640,
+            height: 480
+          },
+          audio: false
+        });
+
+        video.srcObject = stream;
+
+        await video.play();
+
+        faceStatus.innerText = "📷 Camera ON — Looking for face...";
+
+        // Start face detection
+        detectFace();
+
+      } catch (error) {
+
+        console.error(error);
+
+        status.innerText = "❌ Error";
+        faceStatus.innerText =
+          "Camera/AI চালু করা যায়নি: " + error.message;
+      }
+    }
+
+
+    async function detectFace() {
+
+      try {
+
+        const result = await human.detect(video);
+
+        if (result.face && result.face.length > 0) {
+
+          faceStatus.innerText =
+            "✅ Face Detected";
+
+        } else {
+
+          faceStatus.innerText =
+            "👤 No Face Detected";
+
+        }
+
+      } catch (error) {
+
+        console.error(error);
+
+      }
+
+      // Detect again
+      requestAnimationFrame(detectFace);
+    }
+
+
+    startFaceAI();
+
+  </script>
+
+</body>
+</html>
