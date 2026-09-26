@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Face Recognition</title>
+  <title>Employee Face Registration</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
 
@@ -11,6 +11,24 @@
       text-align: center;
       font-family: Arial;
       margin: 20px;
+    }
+
+    input {
+      width: 90%;
+      max-width: 400px;
+      padding: 12px;
+      margin: 7px;
+      font-size: 17px;
+      box-sizing: border-box;
+    }
+
+    button {
+      padding: 12px 25px;
+      margin: 8px;
+      font-size: 17px;
+      cursor: pointer;
+      border-radius: 8px;
+      border: none;
     }
 
     video {
@@ -27,44 +45,103 @@
     }
 
     #result {
-      font-size: 24px;
+      font-size: 20px;
       font-weight: bold;
-      margin-top: 20px;
+      margin-top: 15px;
     }
 
-    #score {
-      font-size: 18px;
-      margin-top: 10px;
+    #employeeList {
+      margin-top: 25px;
+      text-align: left;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .employee {
+      padding: 10px;
+      margin: 5px 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+
+    .deleteBtn {
+      float: right;
+      padding: 5px 10px;
+      font-size: 13px;
     }
   </style>
 </head>
 
 <body>
 
-<h2>👤 Face Recognition</h2>
+<h2>👤 Employee Face Registration</h2>
 
-<p id="status">Starting...</p>
+<input
+  type="text"
+  id="employeeId"
+  placeholder="Employee ID e.g. MSE002"
+>
 
-<video id="video" autoplay muted playsinline></video>
+<input
+  type="text"
+  id="employeeName"
+  placeholder="Employee Name"
+>
 
-<p id="result">Looking for face...</p>
+<br>
 
-<p id="score"></p>
+<button onclick="registerFace()">
+  📸 Register Face
+</button>
+
+<button onclick="clearFields()">
+  Clear
+</button>
+
+<p id="status">Starting camera...</p>
+
+<video
+  id="video"
+  autoplay
+  muted
+  playsinline
+></video>
+
+<p id="result">
+  Enter Employee ID and Name
+</p>
+
+<div id="employeeList"></div>
+
 
 <script>
 
-const video = document.getElementById("video");
-const status = document.getElementById("status");
-const resultText = document.getElementById("result");
-const scoreText = document.getElementById("score");
+const video =
+  document.getElementById("video");
+
+const statusText =
+  document.getElementById("status");
+
+const resultText =
+  document.getElementById("result");
+
+const employeeIdInput =
+  document.getElementById("employeeId");
+
+const employeeNameInput =
+  document.getElementById("employeeName");
+
+const employeeList =
+  document.getElementById("employeeList");
 
 let human = null;
 let busy = false;
 
 
-// ==============================
+// ==========================================
 // HUMAN CONFIG
-// ==============================
+// ==========================================
 
 const config = {
 
@@ -112,208 +189,407 @@ const config = {
 };
 
 
-// ==============================
-// START
-// ==============================
+// ==========================================
+// START CAMERA
+// ==========================================
 
 async function start() {
 
   try {
 
-    status.innerText = "📷 Starting camera...";
+    statusText.innerText =
+      "📷 Starting camera...";
 
     const stream =
       await navigator.mediaDevices.getUserMedia({
+
         video: {
           facingMode: "user",
           width: 640,
           height: 480
         },
+
         audio: false
+
       });
 
     video.srcObject = stream;
 
     await video.play();
 
-    status.innerText = "⚙️ Starting Face AI...";
+    statusText.innerText =
+      "⚙️ Starting Face AI...";
 
-    human = new Human.Human(config);
+    human =
+      new Human.Human(config);
 
-    status.innerText = "✅ Face AI Ready";
+    statusText.innerText =
+      "✅ Camera Ready";
 
     resultText.innerText =
-      "👤 Looking for face...";
+      "Enter Employee ID and Name";
 
-    recognizeFace();
+    showEmployees();
 
   } catch (error) {
 
     console.error(error);
 
-    status.innerText =
-      "❌ Error: " + error.message;
+    statusText.innerText =
+      "❌ Camera Error";
+
+    resultText.innerText =
+      error.message;
 
   }
 
 }
 
 
-// ==============================
-// RECOGNITION
-// ==============================
+// ==========================================
+// REGISTER FACE
+// ==========================================
 
-async function recognizeFace() {
+async function registerFace() {
 
-  if (!human || busy) {
-    setTimeout(recognizeFace, 500);
+  if (busy) return;
+
+  const employeeId =
+    employeeIdInput.value.trim();
+
+  const employeeName =
+    employeeNameInput.value.trim();
+
+
+  // ========================================
+  // VALIDATION
+  // ========================================
+
+  if (!employeeId) {
+
+    alert("Please enter Employee ID");
+
     return;
   }
 
+
+  if (!employeeName) {
+
+    alert("Please enter Employee Name");
+
+    return;
+  }
+
+
+  if (!human) {
+
+    alert("Face AI is not ready yet");
+
+    return;
+  }
+
+
   busy = true;
 
+
   try {
+
+    resultText.innerText =
+      "🔍 Detecting face...";
+
 
     const detected =
       await human.detect(video);
 
-    // No face
+
+    // ======================================
+    // FACE CHECK
+    // ======================================
+
     if (
       !detected.face ||
-      detected.face.length === 0 ||
+      detected.face.length === 0
+    ) {
+
+      resultText.innerText =
+        "❌ No face detected";
+
+      busy = false;
+
+      return;
+    }
+
+
+    if (
       !detected.face[0].embedding
     ) {
 
       resultText.innerText =
-        "👤 No Face Detected";
-
-      scoreText.innerText = "";
+        "❌ Face embedding unavailable";
 
       busy = false;
-
-      setTimeout(recognizeFace, 500);
 
       return;
     }
 
 
-    // Current face
-    const currentEmbedding =
+    const embedding =
       detected.face[0].embedding;
 
 
-    // Load registered faces
-    const database =
+    // ======================================
+    // LOAD DATABASE
+    // ======================================
+
+    let database =
       JSON.parse(
-        localStorage.getItem("faceDatabase") || "[]"
+        localStorage.getItem(
+          "faceDatabase"
+        ) || "[]"
       );
 
 
-    // No registered face
-    if (database.length === 0) {
+    // ======================================
+    // CHECK DUPLICATE ID
+    // ======================================
 
-      resultText.innerText =
-        "❌ No Registered Employee";
-
-      scoreText.innerText =
-        "আগে register.html থেকে face register করুন";
-
-      busy = false;
-
-      setTimeout(recognizeFace, 1000);
-
-      return;
-    }
-
-
-    // Create embedding list
-    const embeddings =
-      database.map(person => person.embedding);
-
-
-    // Find best match
-    const match =
-      human.match.find(
-        currentEmbedding,
-        embeddings
+    const existingIndex =
+      database.findIndex(
+        person =>
+          String(person.employeeId)
+            .toUpperCase() ===
+          employeeId.toUpperCase()
       );
 
 
-    // No valid match
-    if (
-      !match ||
-      match.index < 0
-    ) {
+    const employeeData = {
+
+      employeeId:
+        employeeId,
+
+      employeeName:
+        employeeName,
+
+      embedding:
+        embedding
+
+    };
+
+
+    // ======================================
+    // UPDATE EXISTING
+    // ======================================
+
+    if (existingIndex !== -1) {
+
+      const confirmUpdate =
+        confirm(
+          "This Employee ID already exists.\n\n" +
+          "Do you want to replace the existing face?"
+        );
+
+
+      if (!confirmUpdate) {
+
+        busy = false;
+
+        return;
+      }
+
+
+      database[existingIndex] =
+        employeeData;
+
 
       resultText.innerText =
-        "❌ Unknown Face";
+        "✅ Face updated successfully";
 
-      scoreText.innerText = "";
+    }
 
-      busy = false;
+    // ======================================
+    // NEW EMPLOYEE
+    // ======================================
 
-      setTimeout(recognizeFace, 700);
+    else {
 
-      return;
+      database.push(
+        employeeData
+      );
+
+
+      resultText.innerText =
+        "✅ Employee registered successfully";
+
     }
 
 
-    const person =
-      database[match.index];
+    // ======================================
+    // SAVE DATABASE
+    // ======================================
 
-    const similarity =
-      match.similarity;
+    localStorage.setItem(
+      "faceDatabase",
+      JSON.stringify(database)
+    );
 
 
-    const percentage =
-      Math.round(similarity * 100);
+    showEmployees();
 
 
-    // Recognition threshold
-    // 50% or more = match
-    if (similarity >= 0.50) {
+    // ======================================
+    // CLEAR INPUT
+    // ======================================
 
-      resultText.innerText =
-        "✅ " + person.employeeName;
+    employeeIdInput.value = "";
+    employeeNameInput.value = "";
 
-      scoreText.innerText =
-        "Employee ID: " +
-        person.employeeId +
-        " | Match: " +
-        percentage +
-        "%";
-
-    } else {
-
-      resultText.innerText =
-        "❌ Unknown Face";
-
-      scoreText.innerText =
-        "Match: " + percentage + "%";
-
-    }
 
   } catch (error) {
 
     console.error(error);
 
     resultText.innerText =
-      "⚠️ Recognition Error";
+      "❌ Registration Error";
 
-    scoreText.innerText =
-      error.message;
+    alert(error.message);
 
   }
 
 
   busy = false;
 
-  setTimeout(recognizeFace, 500);
+}
+
+
+// ==========================================
+// SHOW REGISTERED EMPLOYEES
+// ==========================================
+
+function showEmployees() {
+
+  const database =
+    JSON.parse(
+      localStorage.getItem(
+        "faceDatabase"
+      ) || "[]"
+    );
+
+
+  if (database.length === 0) {
+
+    employeeList.innerHTML =
+      "<h3>No employees registered</h3>";
+
+    return;
+  }
+
+
+  let html =
+    "<h3>Registered Employees</h3>";
+
+
+  database.forEach(
+    (person, index) => {
+
+      html += `
+
+        <div class="employee">
+
+          <b>${person.employeeId}</b>
+          -
+          ${person.employeeName}
+
+          <button
+            class="deleteBtn"
+            onclick="deleteEmployee(${index})"
+          >
+            Delete
+          </button>
+
+        </div>
+
+      `;
+
+    }
+  );
+
+
+  employeeList.innerHTML =
+    html;
 
 }
 
 
+// ==========================================
+// DELETE EMPLOYEE
+// ==========================================
+
+function deleteEmployee(index) {
+
+  const database =
+    JSON.parse(
+      localStorage.getItem(
+        "faceDatabase"
+      ) || "[]"
+    );
+
+
+  const person =
+    database[index];
+
+
+  const confirmDelete =
+    confirm(
+      "Delete this employee?\n\n" +
+      person.employeeId +
+      " - " +
+      person.employeeName
+    );
+
+
+  if (!confirmDelete) return;
+
+
+  database.splice(
+    index,
+    1
+  );
+
+
+  localStorage.setItem(
+    "faceDatabase",
+    JSON.stringify(database)
+  );
+
+
+  showEmployees();
+
+
+  resultText.innerText =
+    "Employee deleted";
+
+}
+
+
+// ==========================================
+// CLEAR INPUT
+// ==========================================
+
+function clearFields() {
+
+  employeeIdInput.value = "";
+  employeeNameInput.value = "";
+
+  resultText.innerText =
+    "Enter Employee ID and Name";
+
+}
+
+
+// ==========================================
 // START
+// ==========================================
+
 start();
 
 </script>
