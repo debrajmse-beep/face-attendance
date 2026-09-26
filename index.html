@@ -1,45 +1,23 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Face Attendance</title>
+async function start() {
+  try {
+    status.innerText = "AI model loading...";
 
-  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+    await human.load();
 
-  <style>
-    body {
-      text-align: center;
-      font-family: Arial;
-    }
+    status.innerText = "Camera starting...";
 
-    video {
-      width: 320px;
-      max-width: 90%;
-      border-radius: 12px;
-    }
+    await human.webcam.start({
+      crop: true
+    });
 
-    #status {
-      font-size: 18px;
-      margin-top: 15px;
-    }
-  </style>
-</head>
+    video.srcObject = human.webcam.stream;
 
-<body>
+    status.innerText = "Face scan ready ✅";
 
-<h2>Face Attendance</h2>
+    detectFace();
 
-<video id="video" autoplay playsinline></video>
-
-<p id="status">AI loading...</p>
-
-<script>
-
-const humanConfig = {
-  backend: 'webgl',
-  modelBasePath: 'https://vladmandic.github.io/human-models/models/',
-
-  face: {
-    enabled: true,
-    detector: {
-     …
+  } catch (error) {
+    console.error(error);
+    status.innerText = "AI error ❌ " + error.message;
+  }
+}
