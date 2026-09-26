@@ -18,7 +18,7 @@
       max-width: 500px;
       border-radius: 12px;
       margin-top: 15px;
-      background: #000;
+      background: black;
     }
 
     #status {
@@ -35,118 +35,175 @@
 
 <body>
 
-  <h2>Face AI Attendance</h2>
+<h2>Face AI Attendance</h2>
 
-  <p id="status">Loading AI...</p>
+<p id="status">Starting Camera...</p>
 
-  <video id="video" autoplay muted playsinline></video>
+<video id="video" autoplay muted playsinline></video>
 
-  <p id="faceStatus">Camera starting...</p>
+<p id="faceStatus">📷 Camera starting...</p>
 
-  <script>
+<script>
 
-    const status = document.getElementById("status");
-    const faceStatus = document.getElementById("faceStatus");
-    const video = document.getElementById("video");
+const status = document.getElementById("status");
+const faceStatus = document.getElementById("faceStatus");
+const video = document.getElementById("video");
 
-    // Human AI configuration
+let human;
+
+// -------------------------
+// CAMERA
+// -------------------------
+
+async function startCamera() {
+
+  try {
+
+    status.innerText = "📷 Requesting Camera...";
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: "user",
+        width: 640,
+        height: 480
+      },
+      audio: false
+    });
+
+    video.srcObject = stream;
+
+    await video.play();
+
+    status.innerText = "✅ Camera Started";
+    faceStatus.innerText = "👤 Camera is ON";
+
+    console.log("Camera started");
+
+    // Camera চালু হওয়ার পর AI load হবে
+    loadAI();
+
+  } catch (error) {
+
+    console.error(error);
+
+    status.innerText = "❌ Camera Error";
+
+    faceStatus.innerText =
+      "Camera permission দিতে হবে";
+
+  }
+
+}
+
+
+// -------------------------
+// AI
+// -------------------------
+
+async function loadAI() {
+
+  try {
+
+    status.innerText = "⏳ Loading Face AI...";
+
     const config = {
+
       backend: "webgl",
+
       modelBasePath:
         "https://cdn.jsdelivr.net/npm/@vladmandic/human/models/",
+
       face: {
+
         enabled: true,
+
         detector: {
           rotation: true,
           maxDetected: 5
         },
+
         mesh: {
           enabled: true
         },
+
         iris: {
           enabled: true
         },
+
         description: {
           enabled: true
         }
+
       }
+
     };
 
-    const human = new Human(config);
+    human = new Human(config);
 
-    async function startFaceAI() {
+    await human.load();
 
-      try {
+    status.innerText = "✅ Face AI Ready";
 
-        status.innerText = "⏳ Loading Face AI...";
+    faceStatus.innerText =
+      "👤 Looking for face...";
 
-        // Load AI models
-        await human.load();
+    detectFace();
 
-        status.innerText = "✅ Face AI loaded";
+  } catch (error) {
 
-        // Start camera
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user",
-            width: 640,
-            height: 480
-          },
-          audio: false
-        });
+    console.error(error);
 
-        video.srcObject = stream;
+    status.innerText =
+      "❌ Face AI Loading Error";
 
-        await video.play();
+    faceStatus.innerText =
+      error.message;
 
-        faceStatus.innerText = "📷 Camera ON — Looking for face...";
+  }
 
-        // Start face detection
-        detectFace();
+}
 
-      } catch (error) {
 
-        console.error(error);
+// -------------------------
+// FACE DETECTION
+// -------------------------
 
-        status.innerText = "❌ Error";
-        faceStatus.innerText =
-          "Camera/AI চালু করা যায়নি: " + error.message;
-      }
+async function detectFace() {
+
+  if (!human) return;
+
+  try {
+
+    const result = await human.detect(video);
+
+    if (result.face && result.face.length > 0) {
+
+      faceStatus.innerText =
+        "✅ FACE DETECTED";
+
+    } else {
+
+      faceStatus.innerText =
+        "👤 No Face Detected";
+
     }
 
+  } catch (error) {
 
-    async function detectFace() {
+    console.error(error);
 
-      try {
+  }
 
-        const result = await human.detect(video);
+  requestAnimationFrame(detectFace);
 
-        if (result.face && result.face.length > 0) {
-
-          faceStatus.innerText =
-            "✅ Face Detected";
-
-        } else {
-
-          faceStatus.innerText =
-            "👤 No Face Detected";
-
-        }
-
-      } catch (error) {
-
-        console.error(error);
-
-      }
-
-      // Detect again
-      requestAnimationFrame(detectFace);
-    }
+}
 
 
-    startFaceAI();
+// START
 
-  </script>
+startCamera();
+
+</script>
 
 </body>
 </html>
