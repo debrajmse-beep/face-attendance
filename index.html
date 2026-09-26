@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Face AI Attendance</title>
+  <title>Face Attendance</title>
 
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
 
@@ -26,8 +26,20 @@
       font-weight: bold;
     }
 
-    #faceStatus {
-      font-size: 20px;
+    #result {
+      font-size: 25px;
+      font-weight: bold;
+      margin-top: 20px;
+    }
+
+    #score {
+      font-size: 17px;
+      margin-top: 10px;
+    }
+
+    #attendance {
+      font-size: 22px;
+      font-weight: bold;
       margin-top: 15px;
     }
   </style>
@@ -35,143 +47,157 @@
 
 <body>
 
-<h2>Face AI Attendance</h2>
+<h2>👤 Face Attendance</h2>
 
 <p id="status">Starting...</p>
 
 <video id="video" autoplay muted playsinline></video>
 
-<p id="faceStatus">📷 Starting camera...</p>
+<p id="result">Looking for face...</p>
+
+<p id="score"></p>
+
+<p id="attendance"></p>
 
 <script>
 
-const status = document.getElementById("status");
-const faceStatus = document.getElementById("faceStatus");
 const video = document.getElementById("video");
+const statusText = document.getElementById("status");
+const resultText = document.getElementById("result");
+const scoreText = document.getElementById("score");
+const attendanceText = document.getElementById("attendance");
+
+
+// ==========================================
+// GOOGLE APPS SCRIPT WEB APP URL
+// ==========================================
+
+const GOOGLE_SCRIPT_URL =
+"https://script.google.com/macros/s/AKfycbxiP69tjUFNbuFrjoWWHlBLHjCD5T-TjHvOU_SP7_gy4pNz7HvFtKR39fWrSKuY9V9O/exec";
+
+
+// ==========================================
+// HUMAN AI
+// ==========================================
+
+const config = {
+
+  backend: "webgl",
+
+  modelBasePath:
+    "https://cdn.jsdelivr.net/npm/@vladmandic/human/models/",
+
+  face: {
+
+    enabled: true,
+
+    detector: {
+      enabled: true,
+      rotation: true,
+      maxDetected: 1
+    },
+
+    mesh: {
+      enabled: true
+    },
+
+    description: {
+      enabled: true
+    },
+
+    iris: {
+      enabled: false
+    }
+
+  },
+
+  body: {
+    enabled: false
+  },
+
+  hand: {
+    enabled: false
+  },
+
+  object: {
+    enabled: false
+  }
+
+};
+
 
 let human = null;
-let detecting = false;
+let busy = false;
 
 
-// ==========================
-// CAMERA
-// ==========================
+// ==========================================
+// DUPLICATE SCAN PROTECTION
+// ==========================================
 
-async function startCamera() {
+let lastEmployeeId = "";
+let lastScanTime = 0;
+
+const SCAN_COOLDOWN = 10000; // 10 seconds
+
+
+// ==========================================
+// START CAMERA
+// ==========================================
+
+async function start() {
 
   try {
 
-    status.innerText = "📷 Starting Camera...";
+    statusText.innerText =
+      "📷 Starting camera...";
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: "user",
-        width: 640,
-        height: 480
-      },
-      audio: false
-    });
+
+    const stream =
+      await navigator.mediaDevices.getUserMedia({
+
+        video: {
+          facingMode: "user",
+          width: 640,
+          height: 480
+        },
+
+        audio: false
+
+      });
+
 
     video.srcObject = stream;
 
     await video.play();
 
-    status.innerText = "✅ Camera Started";
-    faceStatus.innerText = "👤 Camera ON";
 
-    console.log("Camera started");
-
-    startAI();
-
-  } catch (error) {
-
-    console.error(error);
-
-    status.innerText = "❌ Camera Error";
-    faceStatus.innerText = error.message;
-
-  }
-
-}
+    statusText.innerText =
+      "⚙️ Starting Face AI...";
 
 
-// ==========================
-// HUMAN AI
-// ==========================
-
-function startAI() {
-
-  try {
-
-    status.innerText = "⚙️ Starting Face AI...";
-
-    const config = {
-
-      backend: "webgl",
-
-      modelBasePath:
-        "https://cdn.jsdelivr.net/npm/@vladmandic/human/models/",
-
-      face: {
-
-        enabled: true,
-
-        detector: {
-          enabled: true,
-          rotation: true,
-          maxDetected: 5
-        },
-
-        mesh: {
-          enabled: false
-        },
-
-        iris: {
-          enabled: false
-        },
-
-        description: {
-          enabled: false
-        }
-
-      },
-
-      body: {
-        enabled: false
-      },
-
-      hand: {
-        enabled: false
-      },
-
-      object: {
-        enabled: false
-      }
-
-    };
+    human =
+      new Human.Human(config);
 
 
-    // IMPORTANT:
-    // Human.Human()
+    statusText.innerText =
+      "✅ Face AI Ready";
 
-    human = new Human.Human(config);
 
-    status.innerText = "✅ Face AI Started";
-
-    faceStatus.innerText =
+    resultText.innerText =
       "👤 Looking for face...";
 
-    console.log("Human AI initialized");
 
-    detectFace();
+    recognizeFace();
+
 
   } catch (error) {
 
     console.error(error);
 
-    status.innerText = "❌ AI Error";
+    statusText.innerText =
+      "❌ Error";
 
-    faceStatus.innerText =
+    resultText.innerText =
       error.message;
 
   }
@@ -179,55 +205,291 @@ function startAI() {
 }
 
 
-// ==========================
-// FACE DETECTION
-// ==========================
+// ==========================================
+// FACE RECOGNITION
+// ==========================================
 
-async function detectFace() {
+async function recognizeFace() {
 
-  if (!human || detecting) return;
+  if (!human || busy) {
 
-  detecting = true;
+    setTimeout(recognizeFace, 500);
+
+    return;
+
+  }
+
+
+  busy = true;
+
 
   try {
 
-    const result = await human.detect(video);
+    const detected =
+      await human.detect(video);
 
-    console.log(result);
 
-    if (result.face && result.face.length > 0) {
+    // ----------------------------------------
+    // NO FACE
+    // ----------------------------------------
 
-      faceStatus.innerText =
-        "✅ FACE DETECTED";
+    if (
+      !detected.face ||
+      detected.face.length === 0 ||
+      !detected.face[0].embedding
+    ) {
 
-    } else {
-
-      faceStatus.innerText =
+      resultText.innerText =
         "👤 No Face Detected";
 
+      scoreText.innerText = "";
+
+      attendanceText.innerText = "";
+
+      busy = false;
+
+      setTimeout(recognizeFace, 500);
+
+      return;
+
     }
+
+
+    // ----------------------------------------
+    // CURRENT FACE
+    // ----------------------------------------
+
+    const currentEmbedding =
+      detected.face[0].embedding;
+
+
+    // ----------------------------------------
+    // REGISTERED DATABASE
+    // ----------------------------------------
+
+    const database =
+      JSON.parse(
+        localStorage.getItem("faceDatabase") || "[]"
+      );
+
+
+    if (database.length === 0) {
+
+      resultText.innerText =
+        "❌ No Registered Employee";
+
+      scoreText.innerText =
+        "Register a face first.";
+
+      busy = false;
+
+      setTimeout(recognizeFace, 1000);
+
+      return;
+
+    }
+
+
+    const embeddings =
+      database.map(
+        person => person.embedding
+      );
+
+
+    // ----------------------------------------
+    // FIND MATCH
+    // ----------------------------------------
+
+    const match =
+      human.match.find(
+        currentEmbedding,
+        embeddings
+      );
+
+
+    if (
+      !match ||
+      match.index < 0
+    ) {
+
+      resultText.innerText =
+        "❌ Unknown Face";
+
+      scoreText.innerText = "";
+
+      attendanceText.innerText = "";
+
+      busy = false;
+
+      setTimeout(recognizeFace, 700);
+
+      return;
+
+    }
+
+
+    const person =
+      database[match.index];
+
+
+    const similarity =
+      match.similarity;
+
+
+    const percentage =
+      Math.round(similarity * 100);
+
+
+    // ----------------------------------------
+    // MATCH THRESHOLD
+    // ----------------------------------------
+
+    if (similarity < 0.50) {
+
+      resultText.innerText =
+        "❌ Unknown Face";
+
+      scoreText.innerText =
+        "Match: " + percentage + "%";
+
+      attendanceText.innerText = "";
+
+      busy = false;
+
+      setTimeout(recognizeFace, 700);
+
+      return;
+
+    }
+
+
+    // ----------------------------------------
+    // PERSON RECOGNIZED
+    // ----------------------------------------
+
+    resultText.innerText =
+      "✅ " + person.employeeName;
+
+
+    scoreText.innerText =
+      "Employee ID: " +
+      person.employeeId +
+      " | Match: " +
+      percentage + "%";
+
+
+    // ----------------------------------------
+    // COOLDOWN
+    // ----------------------------------------
+
+    const now =
+      Date.now();
+
+
+    if (
+      person.employeeId === lastEmployeeId &&
+      now - lastScanTime < SCAN_COOLDOWN
+    ) {
+
+      attendanceText.innerText =
+        "⏳ Already scanned — please wait";
+
+      busy = false;
+
+      setTimeout(recognizeFace, 1000);
+
+      return;
+
+    }
+
+
+    // ----------------------------------------
+    // SEND TO GOOGLE SHEET
+    // ----------------------------------------
+
+    attendanceText.innerText =
+      "⏳ Saving attendance...";
+
+
+    const data = {
+
+      name: person.employeeName,
+
+      id: person.employeeId
+
+    };
+
+
+    try {
+
+      await fetch(
+        GOOGLE_SCRIPT_URL,
+        {
+
+          method: "POST",
+
+          mode: "no-cors",
+
+          headers: {
+            "Content-Type":
+              "text/plain;charset=utf-8"
+          },
+
+          body: JSON.stringify(data)
+
+        }
+      );
+
+
+      lastEmployeeId =
+        person.employeeId;
+
+      lastScanTime =
+        Date.now();
+
+
+      attendanceText.innerText =
+        "✅ Attendance Saved";
+
+
+    } catch (error) {
+
+      console.error(error);
+
+      attendanceText.innerText =
+        "❌ Attendance save failed";
+
+    }
+
 
   } catch (error) {
 
     console.error(error);
 
-    faceStatus.innerText =
-      "❌ Detection Error";
+    resultText.innerText =
+      "⚠️ Recognition Error";
+
+    scoreText.innerText =
+      error.message;
 
   }
 
-  detecting = false;
 
-  setTimeout(detectFace, 200);
+  busy = false;
+
+  setTimeout(
+    recognizeFace,
+    1000
+  );
 
 }
 
 
-// ==========================
+// ==========================================
 // START
-// ==========================
+// ==========================================
 
-startCamera();
+start();
 
 </script>
 
