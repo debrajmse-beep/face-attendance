@@ -7,6 +7,24 @@
 
 <body>
   <h2>Face Attendance</h2>
-  <p>Camera system loading...</p>
+
+  <video id="video" width="320" height="240"
+         autoplay playsinline></video>
+
+  <p id="status">Camera চালু হচ্ছে...</p>
+
+  <script>
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(function(stream) {
+        document.getElementById("video").srcObject = stream;
+        document.getElementById("status").innerText =
+          "Camera চালু হয়েছে ✅";
+      })
+      .catch(function(error) {
+        document.getElementById("status").innerText =
+          "Camera চালু হয়নি ❌ " + error.message;
+      });
+  </script>
+
 </body>
 </html>
