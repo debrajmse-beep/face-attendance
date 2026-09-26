@@ -17,8 +17,8 @@
       width: 90%;
       max-width: 500px;
       border-radius: 12px;
-      margin-top: 15px;
       background: black;
+      margin-top: 15px;
     }
 
     #status {
@@ -37,11 +37,11 @@
 
 <h2>Face AI Attendance</h2>
 
-<p id="status">Starting Camera...</p>
+<p id="status">Starting...</p>
 
 <video id="video" autoplay muted playsinline></video>
 
-<p id="faceStatus">📷 Camera starting...</p>
+<p id="faceStatus">📷 Starting camera...</p>
 
 <script>
 
@@ -49,17 +49,19 @@ const status = document.getElementById("status");
 const faceStatus = document.getElementById("faceStatus");
 const video = document.getElementById("video");
 
-let human;
+let human = null;
+let detecting = false;
 
-// -------------------------
+
+// ==========================
 // CAMERA
-// -------------------------
+// ==========================
 
 async function startCamera() {
 
   try {
 
-    status.innerText = "📷 Requesting Camera...";
+    status.innerText = "📷 Starting Camera...";
 
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
@@ -75,36 +77,33 @@ async function startCamera() {
     await video.play();
 
     status.innerText = "✅ Camera Started";
-    faceStatus.innerText = "👤 Camera is ON";
+    faceStatus.innerText = "👤 Camera ON";
 
     console.log("Camera started");
 
-    // Camera চালু হওয়ার পর AI load হবে
-    loadAI();
+    startAI();
 
   } catch (error) {
 
     console.error(error);
 
     status.innerText = "❌ Camera Error";
-
-    faceStatus.innerText =
-      "Camera permission দিতে হবে";
+    faceStatus.innerText = error.message;
 
   }
 
 }
 
 
-// -------------------------
-// AI
-// -------------------------
+// ==========================
+// HUMAN AI
+// ==========================
 
-async function loadAI() {
+function startAI() {
 
   try {
 
-    status.innerText = "⏳ Loading Face AI...";
+    status.innerText = "⚙️ Starting Face AI...";
 
     const config = {
 
@@ -118,34 +117,51 @@ async function loadAI() {
         enabled: true,
 
         detector: {
+          enabled: true,
           rotation: true,
           maxDetected: 5
         },
 
         mesh: {
-          enabled: true
+          enabled: false
         },
 
         iris: {
-          enabled: true
+          enabled: false
         },
 
         description: {
-          enabled: true
+          enabled: false
         }
 
+      },
+
+      body: {
+        enabled: false
+      },
+
+      hand: {
+        enabled: false
+      },
+
+      object: {
+        enabled: false
       }
 
     };
 
-    human = new Human(config);
 
-    await human.load();
+    // IMPORTANT:
+    // Human.Human()
 
-    status.innerText = "✅ Face AI Ready";
+    human = new Human.Human(config);
+
+    status.innerText = "✅ Face AI Started";
 
     faceStatus.innerText =
       "👤 Looking for face...";
+
+    console.log("Human AI initialized");
 
     detectFace();
 
@@ -153,8 +169,7 @@ async function loadAI() {
 
     console.error(error);
 
-    status.innerText =
-      "❌ Face AI Loading Error";
+    status.innerText = "❌ AI Error";
 
     faceStatus.innerText =
       error.message;
@@ -164,17 +179,21 @@ async function loadAI() {
 }
 
 
-// -------------------------
+// ==========================
 // FACE DETECTION
-// -------------------------
+// ==========================
 
 async function detectFace() {
 
-  if (!human) return;
+  if (!human || detecting) return;
+
+  detecting = true;
 
   try {
 
     const result = await human.detect(video);
+
+    console.log(result);
 
     if (result.face && result.face.length > 0) {
 
@@ -192,14 +211,21 @@ async function detectFace() {
 
     console.error(error);
 
+    faceStatus.innerText =
+      "❌ Detection Error";
+
   }
 
-  requestAnimationFrame(detectFace);
+  detecting = false;
+
+  setTimeout(detectFace, 200);
 
 }
 
 
+// ==========================
 // START
+// ==========================
 
 startCamera();
 
