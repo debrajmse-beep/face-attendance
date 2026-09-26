@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Register Employee Face</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+
+  <style>
+    body {
+      text-align: center;
+      font-family: Arial;
+      margin: 20px;
+    }
+
+    input {
+      padding: 12px;
+      margin: 6px;
+      width: 250px;
+      font-size: 16px;
+    }
+
+    button {
+      padding: 12px 25px;
+      margin: 10px;
+      font-size: 17px;
+      cursor: pointer;
+    }
+
+    video {
+      width: 90%;
+      max-width: 500px;
+      border-radius: 12px;
+      background: black;
+      margin-top: 15px;
+    }
+
+    #status {
+      font-size: 18px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+<h2>👤 Employee Face Registration</h2>
+
+<input id="employeeId" placeholder="Employee ID">
+
+<br>
+
+<input id="employeeName" placeholder="Employee Name">
+
+<br>
+
+<p id="status">Starting camera...</p>
+
+<video id="video" autoplay muted playsinline></video>
+
+<br>
+
+<button id="registerBtn" disabled>
+  Register Face
+</button>
+
+<p id="result"></p>
+
+<script>
+
+const video = document.getElementById("video");
+const status = document.getElementById("status");
+const resultText = document.getElementById("result");
+const registerBtn = document.getElementById("registerBtn");
+
+let human = null;
+let lastFace = null;
+
+
+// ==============================
+// HUMAN AI CONFIG
+// ==============================
+
+const config = {
+
+  backend: "webgl",
+
+  modelBasePath:
+    "https://cdn.jsdelivr.net/npm/@vladmandic/human/models/",
+
+  face: {
+
+    enabled: true,
+
+    detector: {
+      enabled: true,
+      rotation: true,
+      maxDetected: 1
+    },
+
+    mesh: {
+      enabled: true
+    },
+
+    description: {
+      enabled: true
+    },
+
+    iris: {
+      enabled: false
+    }
+
+  },
+
+  body: {
+    enabled: false
+  },
+
+  hand: {
+    enabled: false
+  },
+
+  object: {
+    enabled: false
+  }
+
+};
+
+
+// ==============================
+// START CAMERA
+// ==============================
+
+async function startCamera() {
+
+  try {
+
+    status.innerText = "📷 Starting camera...";
+
+    const stream =
+      await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: 640,
+          height: 480
+        },
+        audio: false
+      });
+
+    video.srcObject = stream;
+
+    await video.play();
+
+    status.innerText = "⚙️ Starting Face AI...";
+
+    human = new Human.Human(config);
+
+    status.innerText =
+      "⏳ Face AI ready — detecting face...";
+
+    detectFace();
+
+  } catch (error) {
+
+    console.error(error);
+
+    status.innerText =
+      "❌ Error: " + error.message;
+
+  }
+
+}
+
+
+// ==============================
+// FACE DETECTION
+// ==============================
+
+let busy = false;
+
+async function detectFace() {
+
+  if (!human || busy) {
+    requestAnimationFrame(detectFace);
+    return;
+  }
+
+  busy = true;
+
+  try {
+
+    const detection =
+      await human.detect(video);
+
+    if (
+      detection.face &&
+      detection.face.length > 0 &&
+      detection.face[0].embedding
+    ) {
+
+      lastFace = detection.face[0];
+
+      status.innerText =
+        "✅ Face detected — ready to register";
+
+      registerBtn.disabled = false;
+
+    } else {
+
+      lastFace = null;
+
+      status.innerText =
+        "👤 Face not detected — look at camera";
+
+      registerBtn.disabled = true;
+
+    }
+
+  } catch (error) {
+
+    console.error(error);
+
+  }
+
+  busy = false;
+
+  setTimeout(detectFace, 300);
+
+}
+
+
+// ==============================
+// REGISTER FACE
+// ==============================
+
+registerBtn.addEventListener("click", () => {
+
+  const employeeId =
+    document.getElementById("employeeId").value.trim();
+
+  const employeeName =
+    document.getElementById("employeeName").value.trim();
+
+
+  if (!employeeId) {
+
+    alert("Employee ID দিন");
+
+    return;
+
+  }
+
+
+  if (!employeeName) {
+
+    alert("Employee Name দিন");
+
+    return;
+
+  }
+
+
+  if (!lastFace || !lastFace.embedding) {
+
+    alert("আগে camera-র সামনে মুখ দেখান");
+
+    return;
+
+  }
+
+
+  // Existing database
+  let database =
+    JSON.parse(
+      localStorage.getItem("faceDatabase") || "[]"
+    );
+
+
+  // Check duplicate Employee ID
+  const existing =
+    database.find(
+      person => person.employeeId === employeeId
+    );
+
+
+  if (existing) {
+
+    const replace =
+      confirm(
+        "এই Employee ID আগে থেকেই registered আছে। Replace করবেন?"
+      );
+
+    if (!replace) return;
+
+    database =
+      database.filter(
+        person => person.employeeId !== employeeId
+      );
+
+  }
+
+
+  // Save face embedding
+  database.push({
+
+    employeeId: employeeId,
+
+    employeeName: employeeName,
+
+    embedding: lastFace.embedding,
+
+    registeredAt:
+      new Date().toISOString()
+
+  });
+
+
+  localStorage.setItem(
+    "faceDatabase",
+    JSON.stringify(database)
+  );
+
+
+  resultText.innerText =
+    "✅ Face Registered Successfully";
+
+
+  status.innerText =
+    "Registration complete";
+
+
+  console.log("Face database:", database);
+
+});
+
+
+// START
+
+startCamera();
+
+</script>
+
+</body>
+</html>
