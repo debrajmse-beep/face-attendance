@@ -3,28 +3,43 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Face Attendance</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
+
+  <style>
+    body {
+      text-align: center;
+      font-family: Arial;
+    }
+
+    video {
+      width: 320px;
+      max-width: 90%;
+      border-radius: 12px;
+    }
+
+    #status {
+      font-size: 18px;
+      margin-top: 15px;
+    }
+  </style>
 </head>
 
 <body>
-  <h2>Face Attendance</h2>
 
-  <video id="video" width="320" height="240"
-         autoplay playsinline></video>
+<h2>Face Attendance</h2>
 
-  <p id="status">Camera চালু হচ্ছে...</p>
+<video id="video" autoplay playsinline></video>
 
-  <script>
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(function(stream) {
-        document.getElementById("video").srcObject = stream;
-        document.getElementById("status").innerText =
-          "Camera চালু হয়েছে ✅";
-      })
-      .catch(function(error) {
-        document.getElementById("status").innerText =
-          "Camera চালু হয়নি ❌ " + error.message;
-      });
-  </script>
+<p id="status">AI loading...</p>
 
-</body>
-</html>
+<script>
+
+const humanConfig = {
+  backend: 'webgl',
+  modelBasePath: 'https://vladmandic.github.io/human-models/models/',
+
+  face: {
+    enabled: true,
+    detector: {
+     …
