@@ -1,23 +1,46 @@
-async function start() {
-  try {
-    status.innerText = "AI model loading...";
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Face Attendance</title>
 
-    await human.load();
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/human/dist/human.js"></script>
 
-    status.innerText = "Camera starting...";
+  <style>
+    body {
+      text-align: center;
+      font-family: Arial;
+    }
 
-    await human.webcam.start({
-      crop: true
-    });
+    video {
+      width: 320px;
+      max-width: 90%;
+      border-radius: 12px;
+    }
 
-    video.srcObject = human.webcam.stream;
+    #status {
+      font-size: 18px;
+      margin-top: 15px;
+    }
+  </style>
+</head>
 
-    status.innerText = "Face scan ready ✅";
+<body>
 
-    detectFace();
+<h2>Face Attendance</h2>
 
-  } catch (error) {
-    console.error(error);
-    status.innerText = "AI error ❌ " + error.message;
-  }
-}
+<video id="video" autoplay playsinline></video>
+
+<p id="status">AI loading...</p>
+
+<script>
+
+const humanConfig = {
+  backend: 'wasm',
+  modelBasePath: 'https://cdn.jsdelivr.net/npm/@vladmandic/human/models/',
+
+  face: {
+    enabled: true,
+
+    detector: {
+…
