@@ -59,6 +59,7 @@
 
 <p id="attendance"></p>
 
+
 <script>
 
 const video = document.getElementById("video");
@@ -69,15 +70,15 @@ const attendanceText = document.getElementById("attendance");
 
 
 // ==========================================
-// GOOGLE APPS SCRIPT WEB APP URL
+// NEW GOOGLE APPS SCRIPT WEB APP
 // ==========================================
 
 const GOOGLE_SCRIPT_URL =
-"https://script.google.com/macros/s/AKfycbxiP69tjUFNbuFrjoWWHlBLHjCD5T-TjHvOU_SP7_gy4pNz7HvFtKR39fWrSKuY9V9O/exec";
+"https://script.google.com/macros/s/AKfycbzasUyVV2SkV7yd2bkkcHKZnlgEnJ61ewxDYEDU_cGCQoRkEieAmzdjnom5oHkSk6dV/exec";
 
 
 // ==========================================
-// HUMAN AI
+// HUMAN AI CONFIG
 // ==========================================
 
 const config = {
@@ -126,18 +127,17 @@ const config = {
 };
 
 
+// ==========================================
+// VARIABLES
+// ==========================================
+
 let human = null;
 let busy = false;
-
-
-// ==========================================
-// DUPLICATE SCAN PROTECTION
-// ==========================================
 
 let lastEmployeeId = "";
 let lastScanTime = 0;
 
-const SCAN_COOLDOWN = 10000; // 10 seconds
+const SCAN_COOLDOWN = 10000;
 
 
 // ==========================================
@@ -150,7 +150,6 @@ async function start() {
 
     statusText.innerText =
       "📷 Starting camera...";
-
 
     const stream =
       await navigator.mediaDevices.getUserMedia({
@@ -165,11 +164,9 @@ async function start() {
 
       });
 
-
     video.srcObject = stream;
 
     await video.play();
-
 
     statusText.innerText =
       "⚙️ Starting Face AI...";
@@ -195,7 +192,7 @@ async function start() {
     console.error(error);
 
     statusText.innerText =
-      "❌ Error";
+      "❌ Camera Error";
 
     resultText.innerText =
       error.message;
@@ -213,10 +210,12 @@ async function recognizeFace() {
 
   if (!human || busy) {
 
-    setTimeout(recognizeFace, 500);
+    setTimeout(
+      recognizeFace,
+      500
+    );
 
     return;
-
   }
 
 
@@ -229,9 +228,9 @@ async function recognizeFace() {
       await human.detect(video);
 
 
-    // ----------------------------------------
+    // ======================================
     // NO FACE
-    // ----------------------------------------
+    // ======================================
 
     if (
       !detected.face ||
@@ -248,28 +247,32 @@ async function recognizeFace() {
 
       busy = false;
 
-      setTimeout(recognizeFace, 500);
+      setTimeout(
+        recognizeFace,
+        500
+      );
 
       return;
-
     }
 
 
-    // ----------------------------------------
+    // ======================================
     // CURRENT FACE
-    // ----------------------------------------
+    // ======================================
 
     const currentEmbedding =
       detected.face[0].embedding;
 
 
-    // ----------------------------------------
-    // REGISTERED DATABASE
-    // ----------------------------------------
+    // ======================================
+    // FACE DATABASE
+    // ======================================
 
     const database =
       JSON.parse(
-        localStorage.getItem("faceDatabase") || "[]"
+        localStorage.getItem(
+          "faceDatabase"
+        ) || "[]"
       );
 
 
@@ -281,14 +284,22 @@ async function recognizeFace() {
       scoreText.innerText =
         "Register a face first.";
 
+      attendanceText.innerText = "";
+
       busy = false;
 
-      setTimeout(recognizeFace, 1000);
+      setTimeout(
+        recognizeFace,
+        1000
+      );
 
       return;
-
     }
 
+
+    // ======================================
+    // EMBEDDINGS
+    // ======================================
 
     const embeddings =
       database.map(
@@ -296,9 +307,9 @@ async function recognizeFace() {
       );
 
 
-    // ----------------------------------------
+    // ======================================
     // FIND MATCH
-    // ----------------------------------------
+    // ======================================
 
     const match =
       human.match.find(
@@ -321,12 +332,18 @@ async function recognizeFace() {
 
       busy = false;
 
-      setTimeout(recognizeFace, 700);
+      setTimeout(
+        recognizeFace,
+        700
+      );
 
       return;
-
     }
 
+
+    // ======================================
+    // PERSON
+    // ======================================
 
     const person =
       database[match.index];
@@ -337,12 +354,14 @@ async function recognizeFace() {
 
 
     const percentage =
-      Math.round(similarity * 100);
+      Math.round(
+        similarity * 100
+      );
 
 
-    // ----------------------------------------
+    // ======================================
     // MATCH THRESHOLD
-    // ----------------------------------------
+    // ======================================
 
     if (similarity < 0.50) {
 
@@ -350,37 +369,43 @@ async function recognizeFace() {
         "❌ Unknown Face";
 
       scoreText.innerText =
-        "Match: " + percentage + "%";
+        "Match: " +
+        percentage +
+        "%";
 
       attendanceText.innerText = "";
 
       busy = false;
 
-      setTimeout(recognizeFace, 700);
+      setTimeout(
+        recognizeFace,
+        700
+      );
 
       return;
-
     }
 
 
-    // ----------------------------------------
-    // PERSON RECOGNIZED
-    // ----------------------------------------
+    // ======================================
+    // EMPLOYEE RECOGNIZED
+    // ======================================
 
     resultText.innerText =
-      "✅ " + person.employeeName;
+      "✅ " +
+      person.employeeName;
 
 
     scoreText.innerText =
       "Employee ID: " +
       person.employeeId +
       " | Match: " +
-      percentage + "%";
+      percentage +
+      "%";
 
 
-    // ----------------------------------------
-    // COOLDOWN
-    // ----------------------------------------
+    // ======================================
+    // DUPLICATE SCAN PROTECTION
+    // ======================================
 
     const now =
       Date.now();
@@ -396,16 +421,18 @@ async function recognizeFace() {
 
       busy = false;
 
-      setTimeout(recognizeFace, 1000);
+      setTimeout(
+        recognizeFace,
+        1000
+      );
 
       return;
-
     }
 
 
-    // ----------------------------------------
-    // SEND TO GOOGLE SHEET
-    // ----------------------------------------
+    // ======================================
+    // SAVE ATTENDANCE
+    // ======================================
 
     attendanceText.innerText =
       "⏳ Saving attendance...";
@@ -413,9 +440,14 @@ async function recognizeFace() {
 
     const data = {
 
-      name: person.employeeName,
+      employeeId:
+        person.employeeId,
 
-      id: person.employeeId
+      name:
+        person.employeeName,
+
+      type:
+        "IN"
 
     };
 
@@ -435,11 +467,16 @@ async function recognizeFace() {
               "text/plain;charset=utf-8"
           },
 
-          body: JSON.stringify(data)
+          body:
+            JSON.stringify(data)
 
         }
       );
 
+
+      // ====================================
+      // SUCCESS
+      // ====================================
 
       lastEmployeeId =
         person.employeeId;
@@ -457,7 +494,7 @@ async function recognizeFace() {
       console.error(error);
 
       attendanceText.innerText =
-        "❌ Attendance save failed";
+        "❌ Attendance Save Failed";
 
     }
 
@@ -477,6 +514,7 @@ async function recognizeFace() {
 
   busy = false;
 
+
   setTimeout(
     recognizeFace,
     1000
@@ -486,7 +524,7 @@ async function recognizeFace() {
 
 
 // ==========================================
-// START
+// START SYSTEM
 // ==========================================
 
 start();
