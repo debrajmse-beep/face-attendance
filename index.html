@@ -42,6 +42,38 @@
       font-weight: bold;
       margin-top: 15px;
     }
+
+    #confirmBtn {
+      display: none;
+      margin: 20px auto;
+      padding: 15px 30px;
+      font-size: 20px;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #198754;
+      color: white;
+    }
+
+    #scanAgainBtn {
+      display: none;
+      margin: 10px auto;
+      padding: 12px 25px;
+      font-size: 18px;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #dc3545;
+      color: white;
+    }
+
+    #confirmBtn:disabled,
+    #scanAgainBtn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 
@@ -59,16 +91,50 @@
 
 <p id="attendance"></p>
 
+<button id="confirmBtn">
+  ✅ CONFIRM & SUBMIT
+</button>
+
+<button id="scanAgainBtn">
+  🔄 SCAN AGAIN
+</button>
+
+
 <script>
 
-const video = document.getElementById("video");
-const statusText = document.getElementById("status");
-const resultText = document.getElementById("result");
-const scoreText = document.getElementById("score");
-const attendanceText = document.getElementById("attendance");
+const video =
+  document.getElementById("video");
+
+const statusText =
+  document.getElementById("status");
+
+const resultText =
+  document.getElementById("result");
+
+const scoreText =
+  document.getElementById("score");
+
+const attendanceText =
+  document.getElementById("attendance");
+
+const confirmBtn =
+  document.getElementById("confirmBtn");
+
+const scanAgainBtn =
+  document.getElementById("scanAgainBtn");
+
+
+// ==========================================
+// GOOGLE APPS SCRIPT
+// ==========================================
 
 const GOOGLE_SCRIPT_URL =
 "https://script.google.com/macros/s/AKfycbzasUyVV2SkV7yd2bkkcHKZnlgEnJ61ewxDYEDU_cGCQoRkEieAmzdjnom5oHkSk6dV/exec";
+
+
+// ==========================================
+// HUMAN AI CONFIG
+// ==========================================
 
 const config = {
 
@@ -115,13 +181,27 @@ const config = {
 
 };
 
+
+// ==========================================
+// VARIABLES
+// ==========================================
+
 let human = null;
+
 let busy = false;
 
+let selectedPerson = null;
+
 let lastEmployeeId = "";
+
 let lastScanTime = 0;
 
 const SCAN_COOLDOWN = 10000;
+
+
+// ==========================================
+// START CAMERA
+// ==========================================
 
 async function start() {
 
@@ -175,6 +255,11 @@ async function start() {
 
 }
 
+
+// ==========================================
+// FACE RECOGNITION
+// ==========================================
+
 async function recognizeFace() {
 
   if (!human || busy) {
@@ -187,12 +272,32 @@ async function recognizeFace() {
     return;
   }
 
+
+  // যদি employee already select করা থাকে,
+  // নতুন করে auto scan করবে না
+  if (selectedPerson) {
+
+    setTimeout(
+      recognizeFace,
+      1000
+    );
+
+    return;
+  }
+
+
   busy = true;
+
 
   try {
 
     const detected =
       await human.detect(video);
+
+
+    // ======================================
+    // NO FACE
+    // ======================================
 
     if (
       !detected.face ||
@@ -207,6 +312,12 @@ async function recognizeFace() {
 
       attendanceText.innerText = "";
 
+      confirmBtn.style.display =
+        "none";
+
+      scanAgainBtn.style.display =
+        "none";
+
       busy = false;
 
       setTimeout(
@@ -217,8 +328,18 @@ async function recognizeFace() {
       return;
     }
 
+
+    // ======================================
+    // CURRENT FACE
+    // ======================================
+
     const currentEmbedding =
       detected.face[0].embedding;
+
+
+    // ======================================
+    // FACE DATABASE
+    // ======================================
 
     const database =
       JSON.parse(
@@ -226,6 +347,7 @@ async function recognizeFace() {
           "faceDatabase"
         ) || "[]"
       );
+
 
     if (database.length === 0) {
 
@@ -247,16 +369,27 @@ async function recognizeFace() {
       return;
     }
 
+
+    // ======================================
+    // EMBEDDINGS
+    // ======================================
+
     const embeddings =
       database.map(
         person => person.embedding
       );
+
+
+    // ======================================
+    // FIND MATCH
+    // ======================================
 
     const match =
       human.match.find(
         currentEmbedding,
         embeddings
       );
+
 
     if (
       !match ||
@@ -280,22 +413,30 @@ async function recognizeFace() {
       return;
     }
 
+
+    // ======================================
+    // PERSON
+    // ======================================
+
     const person =
       database[match.index];
 
+
     const similarity =
       match.similarity;
+
 
     const percentage =
       Math.round(
         similarity * 100
       );
 
+
     // ======================================
-    // MATCH THRESHOLD = 90%
+    // MATCH THRESHOLD
     // ======================================
 
-    if (similarity < 0.100) {
+    if (similarity < 0.90) {
 
       resultText.innerText =
         "❌ Unknown Face";
@@ -305,7 +446,8 @@ async function recognizeFace() {
         percentage +
         "%";
 
-      attendanceText.innerText = "";
+      attendanceText.innerText =
+        "Please try again.";
 
       busy = false;
 
@@ -317,9 +459,18 @@ async function recognizeFace() {
       return;
     }
 
+
+    // ======================================
+    // SHOW DETECTED PERSON
+    // ======================================
+
+    selectedPerson = person;
+
+
     resultText.innerText =
       "✅ " +
       person.employeeName;
+
 
     scoreText.innerText =
       "Employee ID: " +
@@ -328,81 +479,18 @@ async function recognizeFace() {
       percentage +
       "%";
 
-    const now =
-      Date.now();
-
-    if (
-      person.employeeId === lastEmployeeId &&
-      now - lastScanTime < SCAN_COOLDOWN
-    ) {
-
-      attendanceText.innerText =
-        "⏳ Already scanned — please wait";
-
-      busy = false;
-
-      setTimeout(
-        recognizeFace,
-        1000
-      );
-
-      return;
-    }
 
     attendanceText.innerText =
-      "⏳ Saving attendance...";
+      "👆 Please check your name and confirm";
 
-    const data = {
 
-      employeeId:
-        person.employeeId,
+    // Show buttons
+    confirmBtn.style.display =
+      "block";
 
-      name:
-        person.employeeName,
+    scanAgainBtn.style.display =
+      "block";
 
-      type:
-        "IN"
-
-    };
-
-    try {
-
-      await fetch(
-        GOOGLE_SCRIPT_URL,
-        {
-
-          method: "POST",
-
-          mode: "no-cors",
-
-          headers: {
-            "Content-Type":
-              "text/plain;charset=utf-8"
-          },
-
-          body:
-            JSON.stringify(data)
-
-        }
-      );
-
-      lastEmployeeId =
-        person.employeeId;
-
-      lastScanTime =
-        Date.now();
-
-      attendanceText.innerText =
-        "✅ Attendance Saved";
-
-    } catch (error) {
-
-      console.error(error);
-
-      attendanceText.innerText =
-        "❌ Attendance Save Failed";
-
-    }
 
   } catch (error) {
 
@@ -416,14 +504,190 @@ async function recognizeFace() {
 
   }
 
+
   busy = false;
 
+
+  // Continue checking, but selectedPerson
+  // will pause recognition
   setTimeout(
     recognizeFace,
     1000
   );
 
 }
+
+
+// ==========================================
+// CONFIRM & SUBMIT
+// ==========================================
+
+confirmBtn.addEventListener(
+  "click",
+  async function() {
+
+    if (!selectedPerson) {
+
+      attendanceText.innerText =
+        "❌ No employee selected";
+
+      return;
+    }
+
+
+    const now =
+      Date.now();
+
+
+    // Duplicate protection
+    if (
+      selectedPerson.employeeId === lastEmployeeId &&
+      now - lastScanTime < SCAN_COOLDOWN
+    ) {
+
+      attendanceText.innerText =
+        "⏳ Already scanned — please wait";
+
+      return;
+    }
+
+
+    confirmBtn.disabled = true;
+
+    scanAgainBtn.disabled = true;
+
+
+    attendanceText.innerText =
+      "⏳ Saving attendance...";
+
+
+    const data = {
+
+      employeeId:
+        selectedPerson.employeeId,
+
+      name:
+        selectedPerson.employeeName,
+
+      type:
+        "IN"
+
+    };
+
+
+    try {
+
+      await fetch(
+        GOOGLE_SCRIPT_URL,
+        {
+
+          method: "POST",
+
+          mode: "no-cors",
+
+          headers: {
+
+            "Content-Type":
+              "text/plain;charset=utf-8"
+
+          },
+
+          body:
+            JSON.stringify(data)
+
+        }
+      );
+
+
+      lastEmployeeId =
+        selectedPerson.employeeId;
+
+      lastScanTime =
+        Date.now();
+
+
+      attendanceText.innerText =
+        "✅ Attendance Saved";
+
+
+      confirmBtn.style.display =
+        "none";
+
+      scanAgainBtn.style.display =
+        "none";
+
+
+      selectedPerson = null;
+
+
+      confirmBtn.disabled = false;
+
+      scanAgainBtn.disabled = false;
+
+
+      // আবার scan শুরু
+      setTimeout(
+        recognizeFace,
+        1500
+      );
+
+
+    } catch (error) {
+
+      console.error(error);
+
+      attendanceText.innerText =
+        "❌ Attendance Save Failed";
+
+      confirmBtn.disabled = false;
+
+      scanAgainBtn.disabled = false;
+
+    }
+
+  }
+);
+
+
+// ==========================================
+// SCAN AGAIN
+// ==========================================
+
+scanAgainBtn.addEventListener(
+  "click",
+  function() {
+
+    selectedPerson = null;
+
+
+    confirmBtn.style.display =
+      "none";
+
+    scanAgainBtn.style.display =
+      "none";
+
+
+    resultText.innerText =
+      "👤 Looking for face...";
+
+    scoreText.innerText = "";
+
+    attendanceText.innerText =
+      "🔄 Scan again";
+
+
+    setTimeout(
+      recognizeFace,
+      300
+    );
+
+  }
+);
+
+
+// ==========================================
+// START SYSTEM
+// ==========================================
 
 start();
 
