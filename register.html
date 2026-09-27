@@ -50,6 +50,14 @@
       margin-top: 15px;
     }
 
+    #employeeNameDisplay {
+      margin-top: 12px;
+      min-height: 32px;
+      font-size: 24px;
+      font-weight: bold;
+      color: #16a34a;
+    }
+
     #employeeList {
       margin-top: 25px;
       text-align: left;
@@ -112,6 +120,8 @@
   Enter Employee ID and Name
 </p>
 
+<div id="employeeNameDisplay"></div>
+
 <div id="employeeList"></div>
 
 
@@ -125,6 +135,9 @@ const statusText =
 
 const resultText =
   document.getElementById("result");
+
+const employeeNameDisplay =
+  document.getElementById("employeeNameDisplay");
 
 const employeeIdInput =
   document.getElementById("employeeId");
@@ -238,8 +251,13 @@ async function start() {
     statusText.innerText =
       "❌ Camera Error";
 
-    resultText.innerText =
-      error.message;
+    if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+      resultText.innerText = "Camera permission denied. Please allow Camera permission and reopen the page.";
+    } else if (error.name === "NotFoundError") {
+      resultText.innerText = "No camera found on this device.";
+    } else {
+      resultText.innerText = error.message || "Unable to start camera.";
+    }
 
   }
 
@@ -290,7 +308,7 @@ async function registerFace() {
 
 
   busy = true;
-
+  employeeNameDisplay.innerText = "👤 " + employeeName;
 
   try {
 
@@ -313,6 +331,7 @@ async function registerFace() {
 
       resultText.innerText =
         "❌ No face detected";
+      employeeNameDisplay.innerText = "👤 " + employeeName;
 
       busy = false;
 
@@ -326,6 +345,7 @@ async function registerFace() {
 
       resultText.innerText =
         "❌ Face embedding unavailable";
+      employeeNameDisplay.innerText = "👤 " + employeeName;
 
       busy = false;
 
@@ -403,6 +423,7 @@ async function registerFace() {
 
       resultText.innerText =
         "✅ Face updated successfully";
+      employeeNameDisplay.innerText = "👤 " + employeeName;
 
     }
 
@@ -419,6 +440,7 @@ async function registerFace() {
 
       resultText.innerText =
         "✅ Employee registered successfully";
+      employeeNameDisplay.innerText = "👤 " + employeeName;
 
     }
 
@@ -582,6 +604,7 @@ function clearFields() {
 
   resultText.innerText =
     "Enter Employee ID and Name";
+  employeeNameDisplay.innerText = "";
 
 }
 
