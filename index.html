@@ -59,7 +59,6 @@
 
 <p id="attendance"></p>
 
-
 <script>
 
 const video = document.getElementById("video");
@@ -68,18 +67,8 @@ const resultText = document.getElementById("result");
 const scoreText = document.getElementById("score");
 const attendanceText = document.getElementById("attendance");
 
-
-// ==========================================
-// NEW GOOGLE APPS SCRIPT WEB APP
-// ==========================================
-
 const GOOGLE_SCRIPT_URL =
 "https://script.google.com/macros/s/AKfycbzasUyVV2SkV7yd2bkkcHKZnlgEnJ61ewxDYEDU_cGCQoRkEieAmzdjnom5oHkSk6dV/exec";
-
-
-// ==========================================
-// HUMAN AI CONFIG
-// ==========================================
 
 const config = {
 
@@ -126,11 +115,6 @@ const config = {
 
 };
 
-
-// ==========================================
-// VARIABLES
-// ==========================================
-
 let human = null;
 let busy = false;
 
@@ -138,11 +122,6 @@ let lastEmployeeId = "";
 let lastScanTime = 0;
 
 const SCAN_COOLDOWN = 10000;
-
-
-// ==========================================
-// START CAMERA
-// ==========================================
 
 async function start() {
 
@@ -171,21 +150,16 @@ async function start() {
     statusText.innerText =
       "⚙️ Starting Face AI...";
 
-
     human =
       new Human.Human(config);
-
 
     statusText.innerText =
       "✅ Face AI Ready";
 
-
     resultText.innerText =
       "👤 Looking for face...";
 
-
     recognizeFace();
-
 
   } catch (error) {
 
@@ -201,11 +175,6 @@ async function start() {
 
 }
 
-
-// ==========================================
-// FACE RECOGNITION
-// ==========================================
-
 async function recognizeFace() {
 
   if (!human || busy) {
@@ -218,19 +187,12 @@ async function recognizeFace() {
     return;
   }
 
-
   busy = true;
-
 
   try {
 
     const detected =
       await human.detect(video);
-
-
-    // ======================================
-    // NO FACE
-    // ======================================
 
     if (
       !detected.face ||
@@ -255,18 +217,8 @@ async function recognizeFace() {
       return;
     }
 
-
-    // ======================================
-    // CURRENT FACE
-    // ======================================
-
     const currentEmbedding =
       detected.face[0].embedding;
-
-
-    // ======================================
-    // FACE DATABASE
-    // ======================================
 
     const database =
       JSON.parse(
@@ -274,7 +226,6 @@ async function recognizeFace() {
           "faceDatabase"
         ) || "[]"
       );
-
 
     if (database.length === 0) {
 
@@ -296,27 +247,16 @@ async function recognizeFace() {
       return;
     }
 
-
-    // ======================================
-    // EMBEDDINGS
-    // ======================================
-
     const embeddings =
       database.map(
         person => person.embedding
       );
-
-
-    // ======================================
-    // FIND MATCH
-    // ======================================
 
     const match =
       human.match.find(
         currentEmbedding,
         embeddings
       );
-
 
     if (
       !match ||
@@ -340,30 +280,22 @@ async function recognizeFace() {
       return;
     }
 
-
-    // ======================================
-    // PERSON
-    // ======================================
-
     const person =
       database[match.index];
 
-
     const similarity =
       match.similarity;
-
 
     const percentage =
       Math.round(
         similarity * 100
       );
 
-
     // ======================================
-    // MATCH THRESHOLD
+    // MATCH THRESHOLD = 90%
     // ======================================
 
-    if (similarity < 0.50) {
+    if (similarity < 0.90) {
 
       resultText.innerText =
         "❌ Unknown Face";
@@ -385,15 +317,9 @@ async function recognizeFace() {
       return;
     }
 
-
-    // ======================================
-    // EMPLOYEE RECOGNIZED
-    // ======================================
-
     resultText.innerText =
       "✅ " +
       person.employeeName;
-
 
     scoreText.innerText =
       "Employee ID: " +
@@ -402,14 +328,8 @@ async function recognizeFace() {
       percentage +
       "%";
 
-
-    // ======================================
-    // DUPLICATE SCAN PROTECTION
-    // ======================================
-
     const now =
       Date.now();
-
 
     if (
       person.employeeId === lastEmployeeId &&
@@ -429,14 +349,8 @@ async function recognizeFace() {
       return;
     }
 
-
-    // ======================================
-    // SAVE ATTENDANCE
-    // ======================================
-
     attendanceText.innerText =
       "⏳ Saving attendance...";
-
 
     const data = {
 
@@ -450,7 +364,6 @@ async function recognizeFace() {
         "IN"
 
     };
-
 
     try {
 
@@ -473,21 +386,14 @@ async function recognizeFace() {
         }
       );
 
-
-      // ====================================
-      // SUCCESS
-      // ====================================
-
       lastEmployeeId =
         person.employeeId;
 
       lastScanTime =
         Date.now();
 
-
       attendanceText.innerText =
         "✅ Attendance Saved";
-
 
     } catch (error) {
 
@@ -497,7 +403,6 @@ async function recognizeFace() {
         "❌ Attendance Save Failed";
 
     }
-
 
   } catch (error) {
 
@@ -511,9 +416,7 @@ async function recognizeFace() {
 
   }
 
-
   busy = false;
-
 
   setTimeout(
     recognizeFace,
@@ -521,11 +424,6 @@ async function recognizeFace() {
   );
 
 }
-
-
-// ==========================================
-// START SYSTEM
-// ==========================================
 
 start();
 
